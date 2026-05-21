@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus, Edit2, Trash2, Calendar, Users, DollarSign, Check, X, ShieldAlert } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Plus, Edit2, Trash2, Calendar, Users, Check, X, ShieldAlert } from "lucide-react";
 import { useBadmintonStore } from "../../store/badmintonStore";
-import { Session, GuestAttendance } from "../../types";
+import type { SessionView, GuestAttendanceView } from "../../types";
 import { useToast } from "../ui/Toast";
 import { Dialog } from "../ui/Dialog";
 import { formatVND, formatDate } from "../../lib/utils";
@@ -17,19 +17,19 @@ export const SessionsTab: React.FC = () => {
     addSession,
     updateSession,
     deleteSession,
-    addMember,
   } = useBadmintonStore();
 
   const { toast } = useToast();
+  const quickGuestSequence = useRef(0);
 
   // Filter current month's sessions
   const monthSessions = sessions
     .filter((s) => s.monthId === currentMonthId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
 
   // Modal & form states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [editingSession, setEditingSession] = useState<SessionView | null>(null);
 
   // Custom delete confirmation state
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export const SessionsTab: React.FC = () => {
   // Attendance check-off state (Member IDs)
   const [attendance, setAttendance] = useState<string[]>([]);
   // Guest attendance logs
-  const [sessionGuests, setSessionGuests] = useState<GuestAttendance[]>([]);
+  const [sessionGuests, setSessionGuests] = useState<GuestAttendanceView[]>([]);
 
   // Add guest inline inputs
   const [selectedGuestId, setSelectedGuestId] = useState("");
@@ -65,7 +65,7 @@ export const SessionsTab: React.FC = () => {
     sGuestFee: string,
     sNotes: string,
     sAttendance: string[],
-    sGuests: GuestAttendance[]
+    sGuests: GuestAttendanceView[]
   ) => {
     return JSON.stringify({
       sDate,
@@ -127,9 +127,9 @@ export const SessionsTab: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (session: Session) => {
+  const openEditModal = (session: SessionView) => {
     setEditingSession(session);
-    setDate(session.date);
+    setDate(session.session_date);
     setCourtFee(String(session.courtFee));
     setShuttlecockFee(String(session.shuttlecockFee));
     setOtherFee(String(session.otherFee));
@@ -140,7 +140,7 @@ export const SessionsTab: React.FC = () => {
     
     // Set initial snapshot
     setInitialSessionSnapshot(takeSnapshot(
-      session.date,
+      session.session_date,
       String(session.courtFee),
       String(session.shuttlecockFee),
       String(session.otherFee),
@@ -188,7 +188,8 @@ export const SessionsTab: React.FC = () => {
       }
     } else if (customGuestName.trim()) {
       name = customGuestName.trim();
-      memberId = "guest_quick_" + Date.now();
+      memberId = `guest_quick_${quickGuestSequence.current}`;
+      quickGuestSequence.current += 1;
     } else {
       toast("Vui lòng chọn thành viên vãng lai hoặc nhập tên vãng lai mới!", "warning");
       return;
@@ -200,7 +201,7 @@ export const SessionsTab: React.FC = () => {
       return;
     }
 
-    const newGuestAtt: GuestAttendance = {
+    const newGuestAtt: GuestAttendanceView = {
       memberId,
       name,
       paidAmount: Number(guestPaidAmount) || 0,
@@ -219,7 +220,7 @@ export const SessionsTab: React.FC = () => {
     setSessionGuests((prev) => prev.filter((g) => g.memberId !== memberId));
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!date) {
@@ -237,41 +238,17 @@ export const SessionsTab: React.FC = () => {
       return;
     }
 
-    // Resolve and dynamically register custom guests added by name
-    const resolvedGuests = sessionGuests.map((g, index) => {
-      if (g.memberId.startsWith("guest_quick_")) {
-        // Check if there is already an active guest member with this name (case-insensitive)
-        const existing = members.find(
-          (m) => m.type === "guest" && m.name.toLowerCase() === g.name.toLowerCase() && m.status === "active"
-        );
-        if (existing) {
-          return {
-            ...g,
-            memberId: existing.id,
-          };
-        } else {
-          // Generate a real member ID and register them in members list
-          const newMemberId = "m_guest_" + Date.now() + "_" + index;
-          addMember({
-            id: newMemberId,
-            name: g.name,
-            phone: "",
-            type: "guest",
-            status: "active",
-            notes: "Tự động đăng ký qua buổi chơi",
-          } as any);
-          return {
-            ...g,
-            memberId: newMemberId,
-          };
-        }
-      }
-      return g;
+    const resolvedGuests = sessionGuests.map((g) => {
+      if (!g.memberId.startsWith("guest_quick_")) return g;
+      const existing = members.find(
+        (m) => m.type === "guest" && m.name.toLowerCase() === g.name.toLowerCase() && m.status === "active"
+      );
+      return existing ? { ...g, memberId: existing.id } : g;
     });
 
     const sessionData = {
       monthId: currentMonthId,
-      date,
+      session_date: date,
       courtFee: Number(courtFee) || 0,
       shuttlecockFee: Number(shuttlecockFee) || 0,
       otherFee: Number(otherFee) || 0,
@@ -282,13 +259,13 @@ export const SessionsTab: React.FC = () => {
     };
 
     if (editingSession) {
-      updateSession({
+      await updateSession({
         ...editingSession,
         ...sessionData,
       });
       toast(`Đã cập nhật buổi chơi ngày ${formatDate(date)}!`, "success", "Thành công");
     } else {
-      addSession(sessionData);
+      await addSession(sessionData);
       toast(`Đã thêm buổi chơi ngày ${formatDate(date)} thành công!`, "success", "Thành công");
     }
 
@@ -332,7 +309,7 @@ export const SessionsTab: React.FC = () => {
               Chưa có buổi chơi nào
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 font-sans">
-              Hiện chưa ghi nhận buổi chơi nào trong tháng này. Hãy bấm "Ghi nhận buổi mới" để bắt đầu theo dõi thu chi.
+              Hiện chưa ghi nhận buổi chơi nào trong tháng này. Hãy bấm Ghi nhận buổi mới để bắt đầu theo dõi thu chi.
             </p>
           </div>
         </div>
@@ -350,7 +327,7 @@ export const SessionsTab: React.FC = () => {
                 <div className="p-5 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-zinc-950 dark:text-white font-bold font-sans">
                     <Calendar className="w-4 h-4 text-emerald-500" />
-                    {formatDate(session.date)}
+                    {formatDate(session.session_date)}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -361,7 +338,7 @@ export const SessionsTab: React.FC = () => {
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => handleDeleteSession(session.id, session.date)}
+                      onClick={() => handleDeleteSession(session.id, session.session_date)}
                       className="p-1.5 hover:bg-red-500/10 rounded-lg text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer"
                       title="Xóa buổi chơi"
                     >
@@ -409,7 +386,7 @@ export const SessionsTab: React.FC = () => {
                   {/* Notes if any */}
                   {session.notes && (
                     <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl text-xs text-zinc-500 dark:text-zinc-400 font-sans italic border border-zinc-100 dark:border-zinc-900/50">
-                      "{session.notes}"
+                      {session.notes}
                     </div>
                   )}
                 </div>
@@ -712,7 +689,7 @@ export const SessionsTab: React.FC = () => {
               type="button"
               onClick={() => {
                 if (deleteSessionId) {
-                  deleteSession(deleteSessionId);
+                  void deleteSession(deleteSessionId);
                   toast(`Đã xóa buổi chơi ngày ${formatDate(deleteSessionDate)}`, "info", "Đã xóa");
                 }
                 setDeleteSessionId(null);

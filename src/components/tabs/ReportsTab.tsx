@@ -1,12 +1,12 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Wallet, Receipt, Award, Landmark, PieChart as ChartIcon, Printer, FileSpreadsheet } from "lucide-react";
+import { TrendingDown, TrendingUp, Landmark, PieChart as ChartIcon, Printer, FileSpreadsheet } from "lucide-react";
 import { useBadmintonStore } from "../../store/badmintonStore";
 import { formatVND, cn } from "../../lib/utils";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export const ReportsTab: React.FC = () => {
-  const { currentMonthId, getMonthSummary, getClubFund, monthlyConfigs, sessions, payments, members } = useBadmintonStore();
+  const { currentMonthId, getMonthSummary, getClubFund, monthlyConfigs, sessions, payments } = useBadmintonStore();
 
   const summary = getMonthSummary(currentMonthId);
   const clubFund = getClubFund();
@@ -344,7 +344,7 @@ export const ReportsTab: React.FC = () => {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: any) => formatVND(v)} wrapperStyle={{ fontSize: "10px", fontFamily: "Arial" }} />
+                        <Tooltip formatter={(value) => formatVND(Number(value ?? 0))} wrapperStyle={{ fontSize: "10px", fontFamily: "Arial" }} />
                         <Legend iconType="circle" wrapperStyle={{ fontSize: "10px", fontFamily: "Arial" }} />
                       </PieChart>
                     </ResponsiveContainer>
@@ -374,7 +374,7 @@ export const ReportsTab: React.FC = () => {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: any) => formatVND(v)} wrapperStyle={{ fontSize: "10px", fontFamily: "Arial" }} />
+                        <Tooltip formatter={(value) => formatVND(Number(value ?? 0))} wrapperStyle={{ fontSize: "10px", fontFamily: "Arial" }} />
                         <Legend iconType="circle" wrapperStyle={{ fontSize: "10px", fontFamily: "Arial" }} />
                       </PieChart>
                     </ResponsiveContainer>

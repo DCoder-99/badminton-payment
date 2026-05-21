@@ -40,7 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setCurrentMonth,
     addMonthlyConfig,
     updateMonthlyConfig,
-    resetToDemoData,
+    archiveMonthlyConfig,
+    refreshSupabaseData,
   } = useBadmintonStore();
 
   const { toast } = useToast();
@@ -60,12 +61,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const handleEditMonthSubmit = (e: React.FormEvent) => {
+  const handleEditMonthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const currentMonthObj = monthlyConfigs.find((m) => m.id === currentMonthId);
     if (!currentMonthObj) return;
 
-    updateMonthlyConfig({
+    await updateMonthlyConfig({
       ...currentMonthObj,
       expectedCourtFee: Number(editExpectedCourt) || 0,
       expectedShuttlecockFee: Number(editExpectedShuttle) || 0,
@@ -81,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [expectedCourt, setExpectedCourt] = useState("3000000");
   const [expectedShuttle, setExpectedShuttle] = useState("2000000");
 
-  const handleCreateMonthSubmit = (e: React.FormEvent) => {
+  const handleCreateMonthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const id = `${newMonthYear}-${newMonthNumber}`;
     const name = `Tháng ${newMonthNumber}/${newMonthYear}`;
@@ -92,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return;
     }
 
-    addMonthlyConfig({
+    await addMonthlyConfig({
       id,
       name,
       status: "active",
@@ -232,13 +233,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </button>
 
-        {/* Reset Seed Data */}
+        {/* Refresh Supabase Data */}
         <button
           onClick={handleResetData}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer font-sans"
         >
           <RotateCcw className="w-5 h-5" />
-          <span>Reset Dữ Liệu</span>
+          <span>Làm mới dữ liệu</span>
         </button>
       </div>
 
@@ -371,6 +372,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="flex gap-3 justify-end pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            {currentMonthObj?.status === "active" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await archiveMonthlyConfig(currentMonthObj.id);
+                  toast(`Đã lưu trữ ${currentMonthObj.name}`, "info", "Lưu trữ tháng");
+                  setIsEditMonthModalOpen(false);
+                }}
+                className="mr-auto px-4 py-2 text-sm font-semibold bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 rounded-xl transition-colors cursor-pointer"
+              >
+                Lưu trữ tháng
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setIsEditMonthModalOpen(false)}
@@ -392,12 +406,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <Dialog
         isOpen={isResetConfirmOpen}
         onClose={() => setIsResetConfirmOpen(false)}
-        title="Khôi phục dữ liệu gốc"
+        title="Làm mới dữ liệu Supabase"
         className="max-w-md"
       >
         <div className="space-y-4">
           <p className="text-sm text-zinc-400 font-sans">
-            Bạn có chắc chắn muốn khôi phục toàn bộ dữ liệu về trạng thái Demo ban đầu? Mọi chỉnh sửa, thành viên, buổi chơi và đợt đóng phí tự tay bạn thêm vào sẽ bị <span className="font-bold text-red-500">xóa vĩnh viễn</span>.
+            Thao tác này tải lại dữ liệu mới nhất từ Supabase và không xóa bản ghi nào.
           </p>
           <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
             <button
@@ -410,13 +424,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               onClick={() => {
-                resetToDemoData();
-                toast("Đã khôi phục dữ liệu Demo thành công!", "success", "Khôi phục dữ liệu");
+                void refreshSupabaseData();
+                toast("Đã tải lại dữ liệu từ Supabase", "success", "Làm mới dữ liệu");
                 setIsResetConfirmOpen(false);
               }}
               className="px-4 py-2 text-sm font-semibold bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors cursor-pointer"
             >
-              Đồng ý khôi phục
+              Làm mới
             </button>
           </div>
         </div>

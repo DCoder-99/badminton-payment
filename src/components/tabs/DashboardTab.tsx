@@ -6,7 +6,6 @@ import {
   TrendingDown,
   Wallet,
   AlertCircle,
-  Users,
   Calendar,
   Flame,
   ArrowRight
@@ -29,7 +28,7 @@ interface DashboardTabProps {
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({ setActiveTab }) => {
-  const { currentMonthId, getMonthSummary, getClubFund, sessions, members } = useBadmintonStore();
+  const { currentMonthId, getMonthSummary, getClubFund, sessions } = useBadmintonStore();
 
   const summary = getMonthSummary(currentMonthId);
   const clubFund = getClubFund();
@@ -37,7 +36,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ setActiveTab }) => {
   // Find current month's sessions
   const currentMonthSessions = sessions
     .filter((s) => s.monthId === currentMonthId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
 
   // Recharts Data Setup
   const chartData = [
@@ -178,7 +177,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ setActiveTab }) => {
                   tickFormatter={(val) => `${val / 1000}k`}
                 />
                 <Tooltip
-                  formatter={(value: any) => formatVND(value)}
+                  formatter={(value) => formatVND(Number(value ?? 0))}
                   contentStyle={{
                     borderRadius: "12px",
                     border: "1px solid #e4e4e7",
@@ -316,7 +315,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ setActiveTab }) => {
                       className="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 text-zinc-700 dark:text-zinc-300 transition-colors"
                     >
                       <td className="py-3.5 px-4 font-medium dark:text-zinc-200 font-sans">
-                        {s.date.split("-")[2]}/{s.date.split("-")[1]}/{s.date.split("-")[0]}
+                        {s.session_date.split("-")[2]}/{s.session_date.split("-")[1]}/{s.session_date.split("-")[0]}
                       </td>
                       <td className="py-3.5 px-4 font-sans">{formatVND(s.courtFee)}</td>
                       <td className="py-3.5 px-4 font-sans">{formatVND(s.shuttlecockFee)}</td>

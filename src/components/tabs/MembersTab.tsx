@@ -2,11 +2,23 @@
 
 import React, { useState } from "react";
 import { Plus, Search, Edit2, Trash2, Phone, Shield, UserCheck, UserX } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useBadmintonStore } from "../../store/badmintonStore";
-import { Member } from "../../types";
+import type { MemberView } from "../../types";
 import { useToast } from "../ui/Toast";
 import { Dialog } from "../ui/Dialog";
 import { cn } from "../../lib/utils";
+
+const memberSchema = z.object({
+  name: z.string().trim().min(1, "Vui lòng nhập tên thành viên"),
+  phone: z.string().trim().optional(),
+  type: z.enum(["fixed", "guest"]),
+  status: z.enum(["active", "inactive"]),
+});
+
+type MemberFormValues = z.infer<typeof memberSchema>;
 
 export const MembersTab: React.FC = () => {
   const { members, addMember, updateMember, deleteMember } = useBadmintonStore();
@@ -19,7 +31,7 @@ export const MembersTab: React.FC = () => {
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [editingMember, setEditingMember] = useState<MemberView | null>(null);
 
   // Custom delete confirmation state
   const [deleteMemberId, setDeleteMemberId] = useState<string | null>(null);
@@ -30,6 +42,10 @@ export const MembersTab: React.FC = () => {
   const [type, setType] = useState<"fixed" | "guest">("fixed");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
+  const memberForm = useForm<MemberFormValues>({
+    resolver: zodResolver(memberSchema),
+    defaultValues: { name: "", phone: "", type: "fixed", status: "active" },
+  });
 
   const [initialMemberSnapshot, setInitialMemberSnapshot] = useState("");
 
@@ -50,45 +66,49 @@ export const MembersTab: React.FC = () => {
     setType("fixed");
     setPhone("");
     setStatus("active");
+    memberForm.reset({ name: "", phone: "", type: "fixed", status: "active" });
     setInitialMemberSnapshot(takeMemberSnapshot("", "fixed", "", "active"));
     setIsModalOpen(true);
   };
 
-  const openEditModal = (member: Member) => {
+  const openEditModal = (member: MemberView) => {
     setEditingMember(member);
     setName(member.name);
     setType(member.type);
     setPhone(member.phone || "");
     setStatus(member.status);
+    memberForm.reset({ name: member.name, phone: member.phone || "", type: member.type, status: member.status });
     setInitialMemberSnapshot(takeMemberSnapshot(member.name, member.type, member.phone || "", member.status));
     setIsModalOpen(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim()) {
-      toast("Vui lòng nhập tên thành viên", "warning");
+    const parsed = memberSchema.safeParse({ name, phone, type, status });
+    if (!parsed.success) {
+      toast(parsed.error.issues[0]?.message ?? "Dữ liệu thành viên không hợp lệ", "warning");
       return;
     }
+    const values = parsed.data;
 
     if (editingMember) {
-      updateMember({
+      await updateMember({
         ...editingMember,
-        name: name.trim(),
-        type,
-        phone: phone.trim(),
-        status,
+        name: values.name,
+        type: values.type,
+        phone: values.phone ?? "",
+        status: values.status,
       });
-      toast(`Đã cập nhật thông tin cho ${name}!`, "success", "Cập nhật thành công");
+      toast(`Đã cập nhật thông tin cho ${values.name}!`, "success", "Cập nhật thành công");
     } else {
-      addMember({
-        name: name.trim(),
-        type,
-        phone: phone.trim(),
-        status,
+      await addMember({
+        name: values.name,
+        type: values.type,
+        phone: values.phone ?? "",
+        status: values.status,
       });
-      toast(`Đã thêm thành viên ${name} thành công!`, "success", "Thêm mới thành công");
+      toast(`Đã thêm thành viên ${values.name} thành công!`, "success", "Thêm mới thành công");
     }
 
     setIsModalOpen(false);
@@ -321,7 +341,10 @@ export const MembersTab: React.FC = () => {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                memberForm.setValue("name", e.target.value, { shouldValidate: true });
+              }}
               placeholder="Nhập tên thành viên..."
               required
               className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 font-sans"
@@ -335,7 +358,10 @@ export const MembersTab: React.FC = () => {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                memberForm.setValue("phone", e.target.value, { shouldValidate: true });
+              }}
               placeholder="Nhập số điện thoại..."
               className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 font-sans"
             />
@@ -347,7 +373,11 @@ export const MembersTab: React.FC = () => {
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as "fixed" | "guest")}
+              onChange={(e) => {
+                const nextType = e.target.value as "fixed" | "guest";
+                setType(nextType);
+                memberForm.setValue("type", nextType, { shouldValidate: true });
+              }}
               className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 font-sans"
             >
               <option value="fixed">Cố định (Đóng theo tháng & chia sẻ chi phí)</option>
@@ -361,7 +391,11 @@ export const MembersTab: React.FC = () => {
             </label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as "active" | "inactive")}
+              onChange={(e) => {
+                const nextStatus = e.target.value as "active" | "inactive";
+                setStatus(nextStatus);
+                memberForm.setValue("status", nextStatus, { shouldValidate: true });
+              }}
               className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 font-sans"
             >
               <option value="active">Đang hoạt động</option>
@@ -396,7 +430,7 @@ export const MembersTab: React.FC = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-zinc-600 dark:text-zinc-400 font-sans">
-            Bạn có chắc chắn muốn xóa thành viên <span className="font-bold text-zinc-900 dark:text-zinc-100">"{deleteMemberName}"</span>? Hành động này sẽ xóa vĩnh viễn dữ liệu thành viên, bao gồm toàn bộ nhật ký điểm danh và lịch sử đóng tiền quỹ của người này.
+            Bạn có chắc chắn muốn chuyển thành viên <span className="font-bold text-zinc-900 dark:text-zinc-100">{deleteMemberName}</span> sang trạng thái tạm nghỉ? Dữ liệu điểm danh và lịch sử đóng tiền vẫn được giữ lại trong Supabase.
           </p>
           <div className="flex gap-3 justify-end pt-4 border-t border-zinc-100 dark:border-zinc-900">
             <button
@@ -410,14 +444,14 @@ export const MembersTab: React.FC = () => {
               type="button"
               onClick={() => {
                 if (deleteMemberId) {
-                  deleteMember(deleteMemberId);
-                  toast(`Đã xóa thành viên "${deleteMemberName}" khỏi danh sách`, "info", "Đã xóa");
+                  void deleteMember(deleteMemberId);
+                  toast(`Đã chuyển "${deleteMemberName}" sang tạm nghỉ`, "info", "Đã cập nhật");
                 }
                 setDeleteMemberId(null);
               }}
               className="px-4 py-2 text-sm font-semibold bg-red-500 hover:bg-red-650 text-white rounded-xl transition-colors cursor-pointer"
             >
-              Đồng ý xóa
+              Chuyển tạm nghỉ
             </button>
           </div>
         </div>

@@ -8,37 +8,26 @@ import { SessionsTab } from "../components/tabs/SessionsTab";
 import { PaymentsTab } from "../components/tabs/PaymentsTab";
 import { ReportsTab } from "../components/tabs/ReportsTab";
 import { ToastProvider } from "../components/ui/Toast";
+import { useBadmintonStore } from "../store/badmintonStore";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [darkMode, setDarkMode] = useState(true); // Default to gorgeous Dark Mode
-  const [mounted, setMounted] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const { loadData, loading, error } = useBadmintonStore();
 
-  // Avoid Hydration Mismatch by waiting for mount
   useEffect(() => {
-    setMounted(true);
-    // Read local dark theme preferences if any
-    const savedTheme = localStorage.getItem("badminton-theme");
-    if (savedTheme === "light") {
-      setDarkMode(false);
-    }
-  }, []);
+    void loadData();
+  }, [loadData]);
 
-  // Sync dark class to html document element
   useEffect(() => {
-    if (!mounted) return;
-    
     if (darkMode) {
       document.documentElement.classList.add("dark");
-      localStorage.setItem("badminton-theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
-      localStorage.setItem("badminton-theme", "light");
     }
-  }, [darkMode, mounted]);
+  }, [darkMode]);
 
-  // Loading skeleton layout
-  if (!mounted) {
+  if (loading) {
     return (
       <div className="flex h-screen w-full bg-zinc-950 items-center justify-center">
         <div className="space-y-4 text-center">
@@ -47,7 +36,7 @@ export default function Home() {
             <div className="w-8 h-8 rounded-lg bg-emerald-500" />
           </div>
           <h2 className="text-sm font-bold text-zinc-200 tracking-wider uppercase animate-pulse">
-            Đang tải dữ liệu...
+            Đang tải dữ liệu Supabase...
           </h2>
           <div className="w-32 h-1.5 bg-zinc-800 rounded-full mx-auto overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full animate-progress" />
@@ -70,6 +59,11 @@ export default function Home() {
 
         {/* Workspace Right */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto h-screen md:max-h-screen">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+              {error}
+            </div>
+          )}
           {activeTab === "dashboard" && <DashboardTab setActiveTab={setActiveTab} />}
           {activeTab === "members" && <MembersTab />}
           {activeTab === "sessions" && <SessionsTab />}

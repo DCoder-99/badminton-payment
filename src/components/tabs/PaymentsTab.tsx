@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Receipt, Plus, History, CheckCircle, HelpCircle, AlertCircle, FileText, Trash2 } from "lucide-react";
+import { Search, Receipt, CheckCircle, HelpCircle, AlertCircle, FileText, Trash2 } from "lucide-react";
 import { useBadmintonStore } from "../../store/badmintonStore";
-import { Member, Payment } from "../../types";
+import type { MemberView } from "../../types";
 import { useToast } from "../ui/Toast";
 import { Dialog } from "../ui/Dialog";
 import { formatVND, formatDate } from "../../lib/utils";
@@ -34,7 +34,7 @@ export const PaymentsTab: React.FC = () => {
 
   // Record Payment Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeMember, setActiveMember] = useState<Member | null>(null);
+  const [activeMember, setActiveMember] = useState<MemberView | null>(null);
 
   // New Installment input state
   const [payAmount, setPayAmount] = useState("");
@@ -47,7 +47,7 @@ export const PaymentsTab: React.FC = () => {
   const activeFixedMembers = members.filter((m) => m.type === "fixed" && m.status === "active");
   const activeGuestMembers = members.filter((m) => m.type === "guest" && m.status === "active");
 
-  const openPaymentModal = (member: Member, outstandingAmount: number, totalDue: number) => {
+  const openPaymentModal = (member: MemberView, outstandingAmount: number, totalDue: number) => {
     setActiveMember(member);
     const defaultVal = outstandingAmount > 0 
       ? outstandingAmount 
@@ -60,7 +60,7 @@ export const PaymentsTab: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeMember) return;
 
@@ -70,7 +70,7 @@ export const PaymentsTab: React.FC = () => {
       return;
     }
 
-    recordPaymentInstallment(activeMember.id, currentMonthId, amount, payNote.trim());
+    await recordPaymentInstallment(activeMember.id, currentMonthId, amount, payNote.trim());
     
     toast(
       `Đã ghi nhận thanh toán ${formatVND(amount)} cho thành viên ${activeMember.name}!`,
@@ -231,6 +231,9 @@ export const PaymentsTab: React.FC = () => {
         };
       })()
     : null;
+  const activeGuestPaidAtSessions = activeBillingDetails && "paidAtSessions" in activeBillingDetails
+    ? activeBillingDetails.paidAtSessions
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -634,7 +637,7 @@ export const PaymentsTab: React.FC = () => {
               </span>
               {activeMember?.type === "guest" && activeBillingDetails && (
                 <span className="text-[10px] text-zinc-400 block mt-0.5 font-normal">
-                  (Tại sân: {formatVND((activeBillingDetails as any).paidAtSessions || 0)})
+                  (Tại sân: {formatVND(activeGuestPaidAtSessions)})
                 </span>
               )}
             </div>
@@ -654,7 +657,7 @@ export const PaymentsTab: React.FC = () => {
                   >
                     <div className="flex items-center gap-1 text-zinc-500 truncate flex-1">
                       <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="truncate">{formatDate(hist.date)} - "{hist.note || "Thanh toán"}"</span>
+                      <span className="truncate">{formatDate(hist.payment_date)} - {hist.note || "Thanh toán"}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="font-bold text-emerald-500">+{formatVND(hist.amount)}</span>
@@ -662,7 +665,7 @@ export const PaymentsTab: React.FC = () => {
                         type="button"
                         onClick={() => {
                           if (activeMember) {
-                            deletePaymentInstallment(activeMember.id, currentMonthId, hist.id);
+                            void deletePaymentInstallment(activeMember.id, currentMonthId, hist.id);
                             toast(`Đã xóa đợt đóng ${formatVND(hist.amount)} của ${activeMember.name}`, "info", "Đã xóa");
                           }
                         }}

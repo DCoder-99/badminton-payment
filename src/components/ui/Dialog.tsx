@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -23,12 +23,6 @@ export const Dialog: React.FC<DialogProps> = ({
   isDirty = false,
 }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  // Sync mounted state to avoid SSR hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleCloseAttempt = React.useCallback(() => {
     if (isDirty) {
@@ -54,7 +48,6 @@ export const Dialog: React.FC<DialogProps> = ({
   }, [isOpen, handleCloseAttempt]);
 
   if (!isOpen) return null;
-  if (!mounted) return null;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) handleCloseAttempt();
